@@ -3,9 +3,16 @@
 
 ucontext_t context_main, context_a, context_b;
 
-void funcA() { std::cout << "A: start\n"; }
+void funcA() {
+  std::cout << "A: pre swap\n";
+  swapcontext(&context_a, &context_b);
+  std::cout << "A: post swap\n";
+}
 
-void funcB() { std::cout << "B: start\n"; }
+void funcB() {
+  std::cout << "B: start\n";
+  swapcontext(&context_b, &context_a);
+}
 
 int main() {
   std::cout << "Before Context Switch\n";
