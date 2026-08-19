@@ -9,7 +9,7 @@
 class Scheduler {
 private:
   std::vector<Thread *> threads;
-  int current_thread;
+  int current_thread = 0;
   ucontext_t *main_context;
 
 public:
