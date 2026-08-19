@@ -10,46 +10,56 @@ struct Thread {
   bool status;
 };
 
-std::vector<Thread> threads;
+std::vector<Thread *> threads;
 int current_thread = 0;
 
 void yield() {
   int prev = current_thread;
-  current_thread = (current_thread + 1) % threads.size();
-  swapcontext(&threads[prev].context, &threads[current_thread].context);
+  int next = prev;
+  bool found = false;
+
+  for (size_t i = 0; i < threads.size(); i++) {
+    next = (next + 1) % threads.size();
+    if (threads[next]->status == false) {
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    swapcontext(&threads[prev]->context, &context_main);
+    return;
+  }
+
+  current_thread = next;
+  swapcontext(&threads[prev]->context, &threads[next]->context);
 }
 
-void funcA() {
-  std::cout << "Pre swap\n";
+void worker() {
+  int start_id = current_thread;
+  std::cout << "Pre swap ID: " << current_thread << std::endl;
   yield();
-  std::cout << "Post swap\n";
-}
-
-void funcB() {
-  std::cout << "B: start\n";
+  std::cout << "Post Swap\n";
+  threads[start_id]->status = true;
   yield();
 }
 
 int main() {
   std::cout << "Before Context Switch\n";
-  Thread t1;
-  t1.stack = new char[64 * 1024];
-  getcontext(&t1.context);
-  t1.context.uc_stack.ss_sp = t1.stack;
-  t1.context.uc_stack.ss_size = 64 * 1024;
-  t1.context.uc_link = &context_main;
-  makecontext(&t1.context, funcA, 0);
-  threads.push_back(t1);
+  int num_threads = 5;
+  for (int i = 0; i < num_threads; i++) {
+    Thread *t = new Thread();
+    t->stack = new char[64 * 1024];
+    t->status = false;
 
-  Thread t2;
-  t2.stack = new char[64 * 1024];
-  getcontext(&t2.context);
-  t2.context.uc_stack.ss_sp = t2.stack;
-  t2.context.uc_stack.ss_size = 64 * 1024;
-  t2.context.uc_link = &t1.context;
-  makecontext(&t2.context, funcB, 0);
-  threads.push_back(t2);
+    getcontext(&t->context);
+    t->context.uc_stack.ss_sp = t->stack;
+    t->context.uc_stack.ss_size = 64 * 1024;
+    t->context.uc_link = &context_main;
+    makecontext(&t->context, worker, 0);
+    threads.push_back(t);
+  }
 
-  swapcontext(&context_main, &t1.context);
+  swapcontext(&context_main, &threads[0]->context);
   std::cout << "After Context Switch\n";
 }
